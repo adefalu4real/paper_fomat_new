@@ -2,12 +2,12 @@
 import React from 'react';
 import styled from 'styled-components';
 
-import schoolLogo from './assets/FPI.jpg'; 
-import departmentLogo from './assets/CTE.jpg'; 
+import schoolLogo from '../assets/FPI.jpg'; 
+import departmentLogo from '../assets/CTE.jpg'; 
 
 
 const NavWrapper = styled.nav`
-  background-color: #3ef3c6;
+  background-color: #010f0c;
   color: white;
   padding: 15px 20px;
   box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
