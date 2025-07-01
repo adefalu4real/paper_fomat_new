@@ -17,8 +17,8 @@ root.render(
       <Routes>
         <Route path="/" element={<PaperFormatterLanding />}>
           <Route path="/" index element={<PaperFormatterLanding />} />
-          <Route path="formatter" element={<App />} />
         </Route>
+        <Route path="formatter" element={<App />} />
       </Routes>
     </Router>
   </React.StrictMode>

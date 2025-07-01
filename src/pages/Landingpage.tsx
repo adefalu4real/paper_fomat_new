@@ -11,6 +11,7 @@ import {
   CheckCircle,
 } from "lucide-react";
 import styled, { keyframes } from "styled-components";
+import { useNavigate } from "react-router-dom";
 
 // Animations
 const fadeInUp = keyframes`
@@ -113,6 +114,7 @@ const LogoText = styled.span`
   -webkit-background-clip: text;
   background-clip: text;
   color: transparent;
+  cursor: pointer;
 `;
 
 const NavLinks = styled.div`
@@ -216,6 +218,7 @@ const PrimaryButton = styled.button`
   transition: all 0.2s;
   display: flex;
   align-items: center;
+  cursor: pointer;
 
   &:hover {
     box-shadow: 0 20px 25px -5px rgba(59, 130, 246, 0.25);
@@ -580,10 +583,32 @@ const FooterDivider = styled.div`
   color: #9ca3af;
 `;
 
+export const Header = () => {
+  const navigate = useNavigate();
+  return (
+    <Nav>
+      <NavContainer>
+        <Logo>
+          <LogoIcon>
+            <FileText className="w-6 h-6" />
+          </LogoIcon>
+          <LogoText onClick={() => navigate("/")}>PaperFormat</LogoText>
+        </Logo>
+        <NavLinks>
+          <NavLink href="#features">Features</NavLink>
+          <NavLink href="#pricing">Pricing</NavLink>
+          <NavLink href="#about">About</NavLink>
+          <NavButton>Sign In</NavButton>
+        </NavLinks>
+      </NavContainer>
+    </Nav>
+  );
+};
+
 const PaperFormatterLanding = () => {
   const [mousePosition, setMousePosition] = useState({ x: 0, y: 0 });
   const [isVisible, setIsVisible] = useState(false);
-
+  const navigate = useNavigate();
   useEffect(() => {
     const handleMouseMove = (e: any) => {
       setMousePosition({ x: e.clientX, y: e.clientY });
@@ -666,22 +691,9 @@ const PaperFormatterLanding = () => {
       </AnimatedBackground>
 
       {/* Navigation */}
-      <Nav>
-        <NavContainer>
-          <Logo>
-            <LogoIcon>
-              <FileText className="w-6 h-6" />
-            </LogoIcon>
-            <LogoText>PaperFormat</LogoText>
-          </Logo>
-          <NavLinks>
-            <NavLink href="#features">Features</NavLink>
-            <NavLink href="#pricing">Pricing</NavLink>
-            <NavLink href="#about">About</NavLink>
-            <NavButton>Sign In</NavButton>
-          </NavLinks>
-        </NavContainer>
-      </Nav>
+      <div>
+        <Header />
+      </div>
 
       {/* Hero Section */}
       <CenteredSection>
@@ -704,7 +716,7 @@ const PaperFormatterLanding = () => {
           </Subheading>
 
           <ButtonGroup>
-            <PrimaryButton>
+            <PrimaryButton onClick={() => navigate("/formatter")}>
               Start Formatting Free
               <Icon>
                 <ChevronRight className="w-5 h-5 ml-2 group-hover:translate-x-1 transition-transform" />
