@@ -6,7 +6,6 @@ import {
   Download,
   ChevronRight,
   Star,
-  Users,
   Clock,
   CheckCircle,
 } from "lucide-react";
