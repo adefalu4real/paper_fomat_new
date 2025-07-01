@@ -1,19 +1,22 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
 @import url("https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=Montserrat:wght@600&display=swap");
-@import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap");
+
 body {
   margin: 0;
-  font-family: Inter;
+  font-family: "Inter", sans-serif;
   background-color: #fff;
 }
+
 * {
   margin: 0;
   padding: 0;
   box-sizing: border-box;
   scroll-behavior: smooth;
 }
+
 a {
   text-decoration: none;
 }
@@ -22,84 +25,53 @@ html {
   font-size: 10px;
 }
 
+/* Your custom classes should come after Tailwind directives */
 .top {
-  display: flex;
-  flex-direction: row;
-  /* padding: 2rem; */
+  @apply flex flex-row;
 }
 
 .top_a img {
-  border-radius: 80px 20px 80px 20px;
-  width: 230px;
-  height: 280px;
+  @apply rounded-[80px_20px_80px_20px] w-[230px] h-[280px];
 }
-.top_b img {
-  border-radius: 80px 80px 110px 60px;
-  width: 152px;
-  height: 180px;
-  flex-shrink: 0;
-  margin-left: 10px;
-  margin-top: 100px;
-}
-.bottom_a img {
-  border-radius: 120px 50px 80px 80px;
-  width: 152px;
-  height: 180px;
-  flex-shrink: 0;
-  margin-left: 70px;
-  margin-right: 10px;
-  margin-top: 10px;
-}
-.bottom_b img {
-  border-radius: 80px 20px 80px 20px;
-  width: 230px;
-  height: 280px;
 
-  flex-shrink: 0;
+.top_b img {
+  @apply rounded-[80px_80px_110px_60px] w-[152px] h-[180px] shrink-0 ml-[10px] mt-[100px];
 }
+
+.bottom_a img {
+  @apply rounded-[120px_50px_80px_80px] w-[152px] h-[180px] shrink-0 ml-[70px] mr-[10px] mt-[10px];
+}
+
+.bottom_b img {
+  @apply rounded-[80px_20px_80px_20px] w-[230px] h-[280px] shrink-0;
+}
+
 .flexD {
-  display: flex;
-  flex-direction: row;
-  gap: 3rem;
-  justify-content: center;
-  align-items: center;
+  @apply flex flex-row gap-[3rem] justify-center items-center;
 }
+
 .--btn {
-  color: #fff;
-  font-family: Inter;
+  @apply text-white font-inter;
+
   a {
-    color: #fff;
-    font-family: Inter;
+    @apply text-white font-inter;
   }
 }
+
 @media only screen and (max-width: 768px) {
   .top_b img {
-    border-radius: 40px 40px 55px 30px;
-    width: 75px;
-    height: 90px;
-    flex-shrink: 0;
-    margin-left: 5px;
-    margin-top: 50px;
+    @apply rounded-[40px_40px_55px_30px] w-[75px] h-[90px] shrink-0 ml-[5px] mt-[50px];
   }
-  .top_a img {
-    border-radius: 80px 20px 80px 20px;
-    width: 115px;
-    height: 140px;
-  }
-  .bottom_a img {
-    border-radius: 60px 25px 40px 40px;
-    width: 75px;
-    height: 90px;
-    flex-shrink: 0;
-    margin-left: 35px;
-    margin-right: 5px;
-    margin-top: 5px;
-  }
-  .bottom_b img {
-    border-radius: 80px 20px 80px 20px;
-    width: 115px;
-    height: 140px;
 
-    flex-shrink: 0;
+  .top_a img {
+    @apply rounded-[80px_20px_80px_20px] w-[115px] h-[140px];
+  }
+
+  .bottom_a img {
+    @apply rounded-[60px_25px_40px_40px] w-[75px] h-[90px] shrink-0 ml-[35px] mr-[5px] mt-[5px];
+  }
+
+  .bottom_b img {
+    @apply rounded-[80px_20px_80px_20px] w-[115px] h-[140px] shrink-0;
   }
 }

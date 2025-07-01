@@ -1,15 +1,25 @@
-// src/index.tsx
-import React from 'react';
-import ReactDOM from 'react-dom/client';
-import App from './App';
-import { GlobalStyle } from './GlobalStyles'; // <--- THIS IS CORRECT FOR A NAMED EXPORT
+import React from "react";
+import ReactDOM from "react-dom/client";
+import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
+import { GlobalStyle } from "./GlobalStyles";
+import App from "./App";
+import PaperFormatterLanding from "./pages/Landingpage";
+import "./index.css";
 
 const root = ReactDOM.createRoot(
-  document.getElementById('root') as HTMLElement
+  document.getElementById("root") as HTMLElement
 );
+
 root.render(
   <React.StrictMode>
     <GlobalStyle />
-    <App />
+    <Router>
+      <Routes>
+        <Route path="/" element={<PaperFormatterLanding />}>
+          <Route path="/" index element={<PaperFormatterLanding />} />
+          <Route path="formatter" element={<App />} />
+        </Route>
+      </Routes>
+    </Router>
   </React.StrictMode>
 );
