@@ -9,10 +9,10 @@ import {
   Clock,
   CheckCircle,
 } from "lucide-react";
-import styled, { keyframes } from "styled-components";
+import styled, {keyframes } from "styled-components"; 
 import { useNavigate } from "react-router-dom";
 
-// Animations
+
 const fadeInUp = keyframes`
   from {
     opacity: 0;
@@ -23,6 +23,7 @@ const fadeInUp = keyframes`
     transform: translateY(0);
   }
 `;
+
 
 // Layout Components
 const Container = styled.div`
@@ -47,6 +48,10 @@ const Blob = styled.div<{
   right?: string;
   top?: string;
   bottom?: string;
+  // Added props for mouse parallax
+  mouseX?: number;
+  mouseY?: number;
+  movementScale?: number;
 }>`
   position: absolute;
   width: ${(props) => props.size};
@@ -58,7 +63,13 @@ const Blob = styled.div<{
   right: ${(props) => props.right};
   top: ${(props) => props.top};
   bottom: ${(props) => props.bottom};
-  transition: transform 0.1s ease-out;
+  transition: transform 0.1s ease-out; /* Smooth transition for mouse movement */
+
+  // Apply parallax transform if mouseX/mouseY are provided
+  transform: translate(
+    ${(props) => (props.mouseX || 0) * (props.movementScale || 0)}px,
+    ${(props) => (props.mouseY || 0) * (props.movementScale || 0)}px
+  );
 `;
 
 const ContentContainer = styled.div`
@@ -149,7 +160,7 @@ const NavButton = styled.button`
 const HeroContainer = styled.div<{ isVisible: boolean }>`
   opacity: ${(props) => (props.isVisible ? 1 : 0)};
   transform: translateY(${(props) => (props.isVisible ? 0 : "10px")});
-  transition: all 1s;
+  transition: all 1s ease-out; /* Ensured ease-out for smoother entry */
 `;
 
 const TrustBadge = styled.div`
@@ -597,7 +608,7 @@ export const Header = () => {
           <NavLink href="#features">Features</NavLink>
           <NavLink href="#pricing">Pricing</NavLink>
           <NavLink href="#about">About</NavLink>
-          <NavButton>Sign In</NavButton>
+          <NavButton onClick={() => navigate("/signin")}>Sign In</NavButton>
         </NavLinks>
       </NavContainer>
     </Nav>
@@ -605,19 +616,30 @@ export const Header = () => {
 };
 
 const PaperFormatterLanding = () => {
+  // mousePosition now used for dynamic blob movement
   const [mousePosition, setMousePosition] = useState({ x: 0, y: 0 });
+  // isVisible state for HeroContainer's fade-in
   const [isVisible, setIsVisible] = useState(false);
   const navigate = useNavigate();
+
   useEffect(() => {
-    const handleMouseMove = (e: any) => {
-      setMousePosition({ x: e.clientX, y: e.clientY });
+    // Type the event 'e' as MouseEvent for better type safety
+    const handleMouseMove = (e: MouseEvent) => {
+      // Calculate relative mouse position from the center of the viewport
+      const viewportCenterX = window.innerWidth / 2;
+      const viewportCenterY = window.innerHeight / 2;
+      const relativeX = e.clientX - viewportCenterX;
+      const relativeY = e.clientY - viewportCenterY;
+      setMousePosition({ x: relativeX, y: relativeY });
     };
 
     window.addEventListener("mousemove", handleMouseMove);
-    setIsVisible(true);
+    setIsVisible(true); // Trigger hero section animation on mount
 
-    return () => window.removeEventListener("mousemove", handleMouseMove);
-  }, []);
+    return () => {
+      window.removeEventListener("mousemove", handleMouseMove);
+    };
+  }, []); // Empty dependency array means this runs once on mount and cleans up on unmount
 
   const features = [
     {
@@ -656,7 +678,7 @@ const PaperFormatterLanding = () => {
       rating: 5,
     },
     {
-      name: "Maria Rodriguez",
+    name: "Maria Rodriguez",
       role: "Graduate Student",
       content:
         "Finally, a formatter that actually understands academic requirements.",
@@ -675,17 +697,24 @@ const PaperFormatterLanding = () => {
     <Container>
       {/* Animated background elements */}
       <AnimatedBackground>
+        {/* Pass mouse position to blobs for parallax effect */}
         <Blob
           color="linear-gradient(to right, #3b82f6, #9333ea)"
           size="24rem"
           left="10%"
           top="20%"
+          mouseX={mousePosition.x}
+          mouseY={mousePosition.y}
+          movementScale={0.015} // Adjust this value to control how much the blob moves
         />
         <Blob
           color="linear-gradient(to right, #ec4899, #f59e0b)"
           size="20rem"
           right="10%"
           bottom="20%"
+          mouseX={mousePosition.x}
+          mouseY={mousePosition.y}
+          movementScale={-0.025} // Negative scale makes it move in the opposite direction
         />
       </AnimatedBackground>
 
@@ -715,7 +744,7 @@ const PaperFormatterLanding = () => {
           </Subheading>
 
           <ButtonGroup>
-            <PrimaryButton onClick={() => navigate("/formatter")}>
+            <PrimaryButton onClick={() => navigate("/dashboard")}>
               Start Formatting Free
               <Icon>
                 <ChevronRight className="w-5 h-5 ml-2 group-hover:translate-x-1 transition-transform" />
@@ -738,6 +767,8 @@ const PaperFormatterLanding = () => {
           </StatsContainer>
         </HeroContainer>
       </CenteredSection>
+
+      ---
 
       {/* Features Section */}
       <Section id="features">
@@ -764,6 +795,8 @@ const PaperFormatterLanding = () => {
           </FeatureGrid>
         </ContentContainer>
       </Section>
+
+      ---
 
       {/* Demo Section */}
       <Section>
@@ -812,6 +845,8 @@ const PaperFormatterLanding = () => {
         </ContentContainer>
       </Section>
 
+      ---
+
       {/* Testimonials */}
       <Section>
         <ContentContainer>
@@ -844,6 +879,8 @@ const PaperFormatterLanding = () => {
         </ContentContainer>
       </Section>
 
+      ---
+
       {/* CTA Section */}
       <Section>
         <ContentContainer>
@@ -862,6 +899,8 @@ const PaperFormatterLanding = () => {
           </CTACard>
         </ContentContainer>
       </Section>
+
+      ---
 
       {/* Footer */}
       <Footer>
