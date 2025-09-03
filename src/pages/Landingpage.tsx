@@ -9,20 +9,11 @@ import {
   Clock,
   CheckCircle,
 } from "lucide-react";
-import styled, {keyframes } from "styled-components"; 
+import styled from "styled-components"; 
 import { useNavigate } from "react-router-dom";
+import cte from "../assets/CTE.jpg"
+import fpi from "../assets/FPI.jpg"
 
-
-const fadeInUp = keyframes`
-  from {
-    opacity: 0;
-    transform: translateY(10px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-`;
 
 
 // Layout Components
@@ -595,6 +586,7 @@ const FooterDivider = styled.div`
 
 export const Header = () => {
   const navigate = useNavigate();
+  const user = localStorage.getItem("token")
   return (
     <Nav>
       <NavContainer>
@@ -602,13 +594,22 @@ export const Header = () => {
           <LogoIcon>
             <FileText className="w-6 h-6" />
           </LogoIcon>
-          <LogoText onClick={() => navigate("/")}>PaperFormat</LogoText>
+          <LogoText onClick={() => navigate("/")}>FuTera</LogoText>
         </Logo>
         <NavLinks>
-          <NavLink href="#features">Features</NavLink>
-          <NavLink href="#pricing">Pricing</NavLink>
+          <NavLink href="/admin/users">History</NavLink>
           <NavLink href="#about">About</NavLink>
-          <NavButton onClick={() => navigate("/signin")}>Sign In</NavButton>
+         {
+          user ? <>
+          <NavButton onClick={() => {
+            localStorage.removeItem("token")
+            navigate("/login")
+          }}>Logout</NavButton>
+          </> : <>
+           <NavButton onClick={() => navigate("/login")}>Sign In</NavButton>
+           <NavButton onClick={() => navigate("/register")}>Sign Up</NavButton>
+          </>
+         }
         </NavLinks>
       </NavContainer>
     </Nav>
@@ -692,7 +693,20 @@ const PaperFormatterLanding = () => {
     { number: "15sec", label: "Avg. Process Time" },
     { number: "500+", label: "Universities" },
   ];
+const StyledLogo = styled.img`
+  width: 60px; /* Adjust logo size as needed */
+  height: auto;
+   object-fit: contain; 
+  border-radius: 50%;
+`;
+const LogoAndTextContainer = styled.div`
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 1.5rem; 
+  flex-wrap: wrap; 
 
+`;
   return (
     <Container>
       {/* Animated background elements */}
@@ -705,7 +719,7 @@ const PaperFormatterLanding = () => {
           top="20%"
           mouseX={mousePosition.x}
           mouseY={mousePosition.y}
-          movementScale={0.015} // Adjust this value to control how much the blob moves
+          movementScale={0.015} 
         />
         <Blob
           color="linear-gradient(to right, #ec4899, #f59e0b)"
@@ -734,17 +748,27 @@ const PaperFormatterLanding = () => {
           </TrustBadge>
 
           <Heading>
-            Format Academic Papers
-            <GradientText>Like Magic</GradientText>
+            Academic-Based Paper Formatting Platform 
+           <LogoAndTextContainer>
+              <StyledLogo
+                src={fpi} // FPI logo URL
+                alt="FPI Logo"
+              />
+              <GradientText>Format Like Magic</GradientText>
+               <StyledLogo
+                src={cte} // CTE logo URL
+                alt="CTE Logo"
+              />
+            </LogoAndTextContainer>
           </Heading>
 
           <Subheading>
             Transform messy documents into perfectly formatted academic papers
-            in seconds. APA, MLA, Chicago - we handle it all with AI precision.
+            in seconds. APA, MLA, FPI, SPRINGER- we handle it all with AI precision.
           </Subheading>
 
           <ButtonGroup>
-            <PrimaryButton onClick={() => navigate("/dashboard")}>
+            <PrimaryButton onClick={() => navigate("/register")}>
               Start Formatting Free
               <Icon>
                 <ChevronRight className="w-5 h-5 ml-2 group-hover:translate-x-1 transition-transform" />
@@ -767,8 +791,6 @@ const PaperFormatterLanding = () => {
           </StatsContainer>
         </HeroContainer>
       </CenteredSection>
-
-      ---
 
       {/* Features Section */}
       <Section id="features">
@@ -795,8 +817,6 @@ const PaperFormatterLanding = () => {
           </FeatureGrid>
         </ContentContainer>
       </Section>
-
-      ---
 
       {/* Demo Section */}
       <Section>
@@ -845,8 +865,6 @@ const PaperFormatterLanding = () => {
         </ContentContainer>
       </Section>
 
-      ---
-
       {/* Testimonials */}
       <Section>
         <ContentContainer>
@@ -879,8 +897,6 @@ const PaperFormatterLanding = () => {
         </ContentContainer>
       </Section>
 
-      ---
-
       {/* CTA Section */}
       <Section>
         <ContentContainer>
@@ -899,8 +915,6 @@ const PaperFormatterLanding = () => {
           </CTACard>
         </ContentContainer>
       </Section>
-
-      ---
 
       {/* Footer */}
       <Footer>

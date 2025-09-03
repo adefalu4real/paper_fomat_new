@@ -1,6 +1,6 @@
 import { createSlice } from "@reduxjs/toolkit";
 import jwtDecode from "jwt-decode";
-import TokenService from "../../../service/TokenService";
+import TokenService from "../services/TokenService"
 
 const authSlice = createSlice({
   name: "auth",
