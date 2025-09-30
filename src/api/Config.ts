@@ -1,6 +1,6 @@
 
 
-const API_BASE_URL = "http://localhost:5000/api/v1";
+const API_BASE_URL = "https://paper-format-backend-fuiv.vercel.app/api/v1";
 
 // API Endpoints
 export const API_ENDPOINTS = {

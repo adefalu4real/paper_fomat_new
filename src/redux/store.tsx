@@ -1,6 +1,6 @@
 import { configureStore } from "@reduxjs/toolkit";
-import { apiSlice } from "./api/apiSlice";
-import authReducer from "./features/auth/authSlice";
+// import { apiSlice } from "./api/apiSlice";
+// import authReducer from "./features/auth/authSlice";
 // import serviceReducer from "./features/services/serviceSlice";
 // import projectReducer from "./features/project/projectSlice";
 // import appointmentReducer from "./features/appointments/appointmentSlice";
@@ -8,14 +8,14 @@ import authReducer from "./features/auth/authSlice";
 // Configure the Redux store
 const store = configureStore({
   reducer: {
-    [apiSlice.reducerPath]: apiSlice.reducer,
-    auth: authReducer,
+    // [apiSlice.reducerPath]: apiSlice.reducer,
+    // auth: authReducer,
     // service: serviceReducer,
     // project: projectReducer,
     // appointment: appointmentReducer,
   },
   middleware: (getDefaultMiddleware) =>
-    getDefaultMiddleware().concat(apiSlice.middleware),
+    getDefaultMiddleware(),
   devTools: process.env.REACT_APP_NODE_ENV !== "production",
 });
 

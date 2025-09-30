@@ -1,8 +1,8 @@
-import React, { useState, useEffect, FormEvent } from "react";
+import { useState, useEffect, FormEvent } from "react";
 import { NavLink, useNavigate } from "react-router-dom"; // Corrected import syntax
 import { Eye, EyeOff, LoaderCircle, FileText } from "lucide-react"; // Ensured FileText is imported
 
-export  const REGISTER_API_URL = "http://localhost:5000/api/v1/user/createadmin";
+export  const REGISTER_API_URL = "https://paper-format-backend-fuiv.vercel.app/api/v1/user/createadmin";
 
 
 export default function SignUp() {

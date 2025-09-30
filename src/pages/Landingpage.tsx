@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import { useState, useEffect } from "react";
 import {
   FileText,
   Zap,
@@ -9,8 +9,9 @@ import {
   Clock,
   CheckCircle,
 } from "lucide-react";
-import styled from "styled-components"; 
+import styled from "styled-components";
 import { useNavigate } from "react-router-dom";
+import { jwtDecode } from "jwt-decode";
 import cte from "../assets/CTE.jpg"
 import fpi from "../assets/FPI.jpg"
 
@@ -584,9 +585,26 @@ const FooterDivider = styled.div`
   color: #9ca3af;
 `;
 
+interface DecodedToken {
+  role?: string;
+  [key: string]: unknown;
+}
+
 export const Header = () => {
   const navigate = useNavigate();
-  const user = localStorage.getItem("token")
+  const token = localStorage.getItem("token");
+
+  // Decode token to check user role
+  let isAdmin = false;
+  if (token) {
+    try {
+      const decoded = jwtDecode<DecodedToken>(token);
+      isAdmin = decoded.role === 'admin';
+    } catch (error) {
+      console.error('Error decoding token:', error);
+    }
+  }
+
   return (
     <Nav>
       <NavContainer>
@@ -597,30 +615,40 @@ export const Header = () => {
           <LogoText onClick={() => navigate("/")}>FuTera</LogoText>
         </Logo>
         <NavLinks>
-          <NavLink href="/admin/users">History</NavLink>
+          {isAdmin && <NavLink href="/admin/users">History</NavLink>}
           <NavLink href="#about">About</NavLink>
-         {
-          user ? <>
-          <NavButton onClick={() => {
-            localStorage.removeItem("token")
-            navigate("/login")
-          }}>Logout</NavButton>
-          </> : <>
-           <NavButton onClick={() => navigate("/login")}>Sign In</NavButton>
-           <NavButton onClick={() => navigate("/register")}>Sign Up</NavButton>
-          </>
-         }
+          {
+           token ? <>
+           <NavButton onClick={() => {
+             localStorage.removeItem("token")
+             navigate("/login")
+           }}>Logout</NavButton>
+           </> : <>
+            <NavButton onClick={() => navigate("/login")}>Sign In</NavButton>
+            <NavButton onClick={() => navigate("/register")}>Sign Up</NavButton>
+           </>
+          }
         </NavLinks>
       </NavContainer>
     </Nav>
   );
 };
 
+interface FormattedPaper {
+  id: number;
+  title: string;
+  format: string;
+  content: string;
+  timestamp: string;
+}
+
 const PaperFormatterLanding = () => {
   // mousePosition now used for dynamic blob movement
   const [mousePosition, setMousePosition] = useState({ x: 0, y: 0 });
   // isVisible state for HeroContainer's fade-in
   const [isVisible, setIsVisible] = useState(false);
+  const [formattedPapers, setFormattedPapers] = useState<FormattedPaper[]>([]);
+  const [currentPaperIndex, setCurrentPaperIndex] = useState(0);
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -636,6 +664,10 @@ const PaperFormatterLanding = () => {
 
     window.addEventListener("mousemove", handleMouseMove);
     setIsVisible(true); // Trigger hero section animation on mount
+
+    // Load formatted papers from localStorage
+    const savedPapers = JSON.parse(localStorage.getItem('formattedPapers') || '[]');
+    setFormattedPapers(savedPapers);
 
     return () => {
       window.removeEventListener("mousemove", handleMouseMove);
@@ -768,13 +800,22 @@ const LogoAndTextContainer = styled.div`
           </Subheading>
 
           <ButtonGroup>
-            <PrimaryButton onClick={() => navigate("/register")}>
+            <PrimaryButton onClick={() => {
+              const token = localStorage.getItem("token");
+              if (token) {
+                // User is logged in, open format page in new tab
+                window.open("/format", "_blank");
+              } else {
+                // User not logged in, go to register
+                navigate("/register");
+              }
+            }}>
               Start Formatting Free
               <Icon>
                 <ChevronRight className="w-5 h-5 ml-2 group-hover:translate-x-1 transition-transform" />
               </Icon>
             </PrimaryButton>
-            <SecondaryButton>
+            <SecondaryButton onClick={() => navigate("/samples")}>
               <Download className="w-5 h-5 mr-2" />
               See Example
             </SecondaryButton>
@@ -824,40 +865,81 @@ const LogoAndTextContainer = styled.div`
           <DemoCard>
             <DemoGrid>
               <div>
-                <Heading>See It In Action</Heading>
+                <Heading>See Formatted Papers</Heading>
                 <Subheading>
-                  Upload your document, select your style, and watch as our AI
-                  transforms it into a perfectly formatted academic paper.
+                  Browse through real formatted academic papers created by our users.
+                  See how different formats look in action.
                 </Subheading>
-                <div className="space-y-4">
-                  {[
-                    "Upload Document",
-                    "Choose Format Style",
-                    "AI Processing",
-                    "Download Perfect Paper",
-                  ].map((step, index) => (
-                    <DemoStep key={index}>
-                      <StepIcon>
-                        <CheckCircle className="w-4 h-4" />
-                      </StepIcon>
-                      <StepText>{step}</StepText>
-                    </DemoStep>
-                  ))}
-                </div>
+                {formattedPapers.length > 0 ? (
+                  <div className="space-y-4">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <h4 className="font-semibold text-lg">{formattedPapers[currentPaperIndex]?.title}</h4>
+                        <p className="text-sm text-gray-600">Format: {formattedPapers[currentPaperIndex]?.format}</p>
+                      </div>
+                      <div className="flex gap-2">
+                        <button
+                          onClick={() => setCurrentPaperIndex(Math.max(0, currentPaperIndex - 1))}
+                          disabled={currentPaperIndex === 0}
+                          className="px-3 py-1 bg-gray-200 rounded disabled:opacity-50"
+                        >
+                          ← Previous
+                        </button>
+                        <button
+                          onClick={() => setCurrentPaperIndex(Math.min(formattedPapers.length - 1, currentPaperIndex + 1))}
+                          disabled={currentPaperIndex === formattedPapers.length - 1}
+                          className="px-3 py-1 bg-gray-200 rounded disabled:opacity-50"
+                        >
+                          Next →
+                        </button>
+                      </div>
+                    </div>
+                    <p className="text-sm text-gray-500">
+                      {formattedPapers.length} formatted paper{formattedPapers.length !== 1 ? 's' : ''} available
+                    </p>
+                  </div>
+                ) : (
+                  <div className="space-y-4">
+                    {[
+                      "Create Your First Paper",
+                      "Choose Format Style (APA, MLA, IEEE, etc.)",
+                      "See Live Preview",
+                      "Download Formatted Paper",
+                    ].map((step, index) => (
+                      <DemoStep key={index}>
+                        <StepIcon>
+                          <CheckCircle className="w-4 h-4" />
+                        </StepIcon>
+                        <StepText>{step}</StepText>
+                      </DemoStep>
+                    ))}
+                  </div>
+                )}
               </div>
               <DemoVisual>
                 <DemoBox>
-                  <FilePreview>
-                    <FileInfo>
-                      <FileText className="w-6 h-6 mr-3" />
-                      <span className="font-semibold">research_paper.docx</span>
-                    </FileInfo>
-                    <ProgressBar />
-                  </FilePreview>
-                  <Processing>
-                    <Spinner className="w-8 h-8 mb-2" />
-                    <p>Processing with AI...</p>
-                  </Processing>
+                  {formattedPapers.length > 0 ? (
+                    <div
+                      className="p-4 bg-white text-black rounded max-h-80 overflow-y-auto text-sm"
+                      dangerouslySetInnerHTML={{
+                        __html: formattedPapers[currentPaperIndex]?.content.substring(0, 1000) + (formattedPapers[currentPaperIndex]?.content.length > 1000 ? '...' : '')
+                      }}
+                    />
+                  ) : (
+                    <>
+                      <FilePreview>
+                        <FileInfo>
+                          <FileText className="w-6 h-6 mr-3" />
+                          <span className="font-semibold">research_paper.docx</span>
+                        </FileInfo>
+                        <ProgressBar />
+                      </FilePreview>
+                      <Processing>
+                        <Spinner className="w-8 h-8 mb-2" />
+                        <p>Processing with AI...</p>
+                      </Processing>
+                    </>
+                  )}
                 </DemoBox>
               </DemoVisual>
             </DemoGrid>

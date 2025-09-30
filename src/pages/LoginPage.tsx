@@ -1,9 +1,10 @@
-import React, { useState, useEffect, FormEvent } from "react";
+import { useState, useEffect, FormEvent } from "react";
 import { NavLink, useNavigate } from "react-router-dom";
 import { Eye, EyeOff, LoaderCircle, FileText } from "lucide-react"; // Using Lucide icons for simplicity
+import { toast } from "react-toastify";
 
 
-const REGISTER_API_URL = "http://localhost:5000/api/v1/user/login";
+const REGISTER_API_URL = "https://paper-format-backend-fuiv.vercel.app/api/v1/user/login";
 
 
 export default function LoginPage() {
@@ -41,14 +42,14 @@ export default function LoginPage() {
       const result = await response.json();
       console.log(result)
       localStorage.setItem("token", result.accessToken)
-      
+
       console.log("User login successfully:", result);
-      alert("Login successfully!");
+      toast.success("Login successful!");
       navigate("/format");
 
     } catch (error) {
       console.error("Registration error:", error);
-      alert(`Registration failed: ${error}`);
+      toast.error(`Login failed: ${error}`);
     } finally {
       setIsLoading(false);
     }

@@ -12,13 +12,12 @@ interface Token {
   refreshToken: string;
 }
 
-const dev = process.env.NODE_ENV !== "production";
 
 const getLocalAccessToken = (): string | null => {
   try {
     const user = Cookie.get("accessToken");
     return user || null;
-  } catch (error) {
+  } catch {
     return null;
   }
 };
@@ -27,7 +26,7 @@ const getUser = (): Record<string, unknown> | null => {
   try {
     const user = Cookie.get("accessToken");
     return user ? jwtDecode<Record<string, unknown>>(user) : null;
-  } catch (error) {
+  } catch {
     return null;
   }
 };
@@ -42,7 +41,7 @@ export const getToken = (): Token | null => {
     }
 
     return null;
-  } catch (error) {
+  } catch {
     return null;
   }
 };
@@ -73,7 +72,7 @@ const updateLocalAccessToken = (token: Token): boolean => {
     Cookie.set("accessToken", token.accessToken, accessTokenCookieOptions);
     Cookie.set("refreshToken", token.refreshToken, refreshTokenCookieOptions);
     return true;
-  } catch (error) {
+  } catch {
     return false;
   }
 };
@@ -102,7 +101,7 @@ const isAccessExpired = (): boolean => {
       return new Date().getTime() > new Date(decodedUser.exp * 1000).getTime();
     }
     return true;
-  } catch (error) {
+  } catch {
     return true;
   }
 };

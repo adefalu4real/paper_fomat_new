@@ -12,6 +12,8 @@
     "copy-worker": "copyfiles -u 1 \"node_modules/pdfjs-dist/build/pdf.worker.min.js\" public"
   },
   "dependencies": {
+    "@ckeditor/ckeditor5-build-classic": "^44.3.0",
+    "@ckeditor/ckeditor5-react": "^11.0.0",
     "@mui/icons-material": "^7.2.0",
     "@reduxjs/toolkit": "^2.8.2",
     "firebase": "^11.10.0",

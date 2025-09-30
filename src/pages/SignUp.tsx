@@ -1,8 +1,9 @@
-import React, { useState, useEffect, FormEvent } from "react";
+import { useState, useEffect, FormEvent } from "react";
 import { NavLink, useNavigate } from "react-router-dom"; // Corrected import syntax
 import { Eye, EyeOff, LoaderCircle, FileText } from "lucide-react"; // Ensured FileText is imported
+import { toast } from "react-toastify";
 
-export  const REGISTER_API_URL = "http://localhost:5000/api/v1/user/create";
+export  const REGISTER_API_URL = "https://paper-format-backend-fuiv.vercel.app/api/v1/user/create";
 
 
 export default function SignUp() {
@@ -66,12 +67,12 @@ export default function SignUp() {
 
       const result = await response.json();
       console.log("Account created successfully:", result);
-      alert("Account created successfully! You can now log in.");
+      toast.success("Account created successfully! You can now log in.");
       navigate("/login");
 
     } catch (error) {
       console.error("Registration error:", error);
-      alert(`Registration failed: ${error}`);
+      toast.error(`Registration failed: ${error}`);
     } finally {
       setIsLoading(false);
     }

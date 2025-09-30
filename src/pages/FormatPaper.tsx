@@ -6,6 +6,7 @@ enum PaperType {
     JournalArticle = "Journal Article",
     Thesis = "Thesis",
     Report = "Report",
+    ProjectWriteup = "Project Write-up",
 }
 
 enum FormatType {
@@ -74,8 +75,6 @@ const MainContainer: React.FC<{children: React.ReactNode}> = ({ children }) => <
 const ControlsWrapper: React.FC<{children: React.ReactNode}> = ({ children }) => <div className="bg-white p-6 rounded-xl shadow-lg space-y-2 max-h-[90vh] overflow-y-auto">{children}</div>;
 const StyledLabel: React.FC<React.LabelHTMLAttributes<HTMLLabelElement>> = ({ htmlFor, children, ...props }) => <label htmlFor={htmlFor} className="block text-sm font-semibold text-gray-700 mb-1 mt-4" {...props}>{children}</label>;
 const StyledSelect: React.FC<React.SelectHTMLAttributes<HTMLSelectElement>> = (props) => <select {...props} className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 bg-gray-50" />;
-const StyledInput: React.FC<React.InputHTMLAttributes<HTMLInputElement>> = (props) => <input {...props} className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 bg-gray-50" />;
-const StyledTextarea: React.FC<React.TextareaHTMLAttributes<HTMLTextAreaElement>> = (props) => <textarea {...props} className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 bg-gray-50" />;
 const LoadingIndicator: React.FC<{children: React.ReactNode}> = ({ children }) => <p className="text-gray-500">{children}</p>;
 const PreviewContainer: React.FC<{children: React.ReactNode}> = ({ children }) => <div id="preview-container" className="bg-gray-200 p-4 rounded-xl shadow-inner flex items-center justify-center max-h-[90vh] sticky top-[95px]">{children}</div>;
 const DownloadButton: React.FC<React.ButtonHTMLAttributes<HTMLButtonElement>> = (props) => <button {...props} className="w-full mt-4 bg-blue-600 text-white font-bold py-3 px-4 rounded-lg hover:bg-blue-700 disabled:bg-gray-400" />;
@@ -104,14 +103,13 @@ const HeaderComponent: React.FC = () => (
     </header>
 );
 
-// Declare ReactQuill and external libraries as global types
 declare global {
     interface Window {
-        ReactQuill: any;
-        Quill: any;
-        html2canvas: any;
-        jspdf: any;
-        saveAs: any;
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        html2canvas: (element: HTMLElement, options?: any) => Promise<HTMLCanvasElement>;
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        jspdf: { jsPDF: new (options?: any) => any };
+        saveAs: (blob: Blob, filename: string) => void;
     }
 }
 
@@ -122,14 +120,70 @@ const paperTypeConfig: Record<PaperType, { hasAbstract: boolean; hasKeywords: bo
     [PaperType.JournalArticle]: { hasAbstract: true, hasKeywords: true, hasStructuredBody: true },
     [PaperType.Thesis]: { hasAbstract: true, hasKeywords: true, hasStructuredBody: true },
     [PaperType.Report]: { hasAbstract: true, hasKeywords: false, hasStructuredBody: false },
+    [PaperType.ProjectWriteup]: { hasAbstract: true, hasKeywords: true, hasStructuredBody: true },
 };
 
 // --- FORMATTING FUNCTIONS ---
-
 const formatTextToParagraphs = (htmlContent: string): string => {
-    return htmlContent;
-};
+    // Convert line breaks to paragraphs and ensure proper formatting
+    if (!htmlContent) return '';
 
+    // If it's already HTML, return as is
+    if (htmlContent.includes('<p>') || htmlContent.includes('<div>') || htmlContent.includes('<h')) {
+        return htmlContent;
+    }
+
+    // Convert plain text with line breaks to paragraphs, detecting subheadings
+    const lines = htmlContent.split('\n');
+    const result: string[] = [];
+    let currentParagraph = '';
+
+    for (const line of lines) {
+        const trimmedLine = line.trim();
+
+        if (!trimmedLine) {
+            // Empty line - if we have content, add it as a paragraph
+            if (currentParagraph) {
+                result.push(`<p style="margin-bottom: 1em; text-align: justify; text-indent: 0.5in;">${currentParagraph.trim()}</p>`);
+                currentParagraph = '';
+            }
+            continue;
+        }
+
+        // Check if this looks like a subheading
+        const isSubheading = (
+            trimmedLine.length > 0 &&
+            trimmedLine.length < 100 && // Reasonable subheading length
+            (trimmedLine === trimmedLine.toUpperCase() || // All caps
+             /^\d+\./.test(trimmedLine) || // Numbered (1., 2., etc.)
+             /^[A-Z][^.!?]*$/.test(trimmedLine) && trimmedLine.length < 50) // Title case, short
+        );
+
+        if (isSubheading) {
+            // Add any pending paragraph first
+            if (currentParagraph) {
+                result.push(`<p style="margin-bottom: 1em; text-align: justify; text-indent: 0.5in;">${currentParagraph.trim()}</p>`);
+                currentParagraph = '';
+            }
+            // Add subheading
+            result.push(`<h3 style="margin-top: 1.5em; margin-bottom: 0.5em; font-weight: bold; text-align: left; text-transform: uppercase;">${trimmedLine}</h3>`);
+        } else {
+            // Add to current paragraph
+            if (currentParagraph) {
+                currentParagraph += ' ' + trimmedLine;
+            } else {
+                currentParagraph = trimmedLine;
+            }
+        }
+    }
+
+    // Add any remaining content
+    if (currentParagraph) {
+        result.push(`<p style="margin-bottom: 1em; text-align: justify; text-indent: 0.5in;">${currentParagraph.trim()}</p>`);
+    }
+
+    return result.join('');
+};
 function toRoman(num: number): string {
     const roman: { [key: string]: number } = {M: 1000, CM: 900, D: 500, CD: 400, C: 100, XC: 90, L: 50, XL: 40, X: 10, IX: 9, V: 5, IV: 4, I: 1};
     let str: string = '';
@@ -140,29 +194,49 @@ function toRoman(num: number): string {
     }
     return str;
 }
-
 const formatAsAPA = (payload: FormatRequestPayload): string => {
     let html = `<div style="padding: 1in; font-family: 'Times New Roman', serif; font-size: 12pt; line-height: 2;">`;
 
+    // Title Page
     if (payload.paperHeading) {
-        html += `<p style="text-align: center; font-weight: bold; margin-bottom: 0;">${payload.paperHeading}</p>`;
-    }
-    if (payload.authorName) {
-        html += `<p style="text-align: center; margin-top: 0;">${payload.authorName}</p><br/>`;
+        html += `<div style="text-align: center; margin-bottom: 2in;">`;
+        html += `<h1 style="font-size: 18pt; font-weight: bold; margin-bottom: 0.5in; text-transform: capitalize;">${payload.paperHeading}</h1>`;
+        if (payload.authorName) {
+            html += `<p style="font-size: 14pt; margin-bottom: 0.25in;">${payload.authorName}</p>`;
+            html += `<p style="font-size: 12pt;">Institutional Affiliation</p>`;
+        }
+        html += `<p style="margin-top: 1in; font-size: 12pt;">${new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}</p>`;
+        html += `</div><div style="page-break-before: always;"></div>`;
     }
 
+    // Abstract
     if (payload.abstractContent) {
-        html += `<h2 style="text-align: center; font-weight: bold; margin-top: 1em; margin-bottom: 0.5em;">Abstract</h2>`;
-        html += `<div style="text-indent: 0.5in;">${formatTextToParagraphs(payload.abstractContent)}</div>`;
+        html += `<h2 style="text-align: center; font-weight: bold; font-size: 12pt; margin-top: 1em; margin-bottom: 0.5em;">Abstract</h2>`;
+        html += `<div style="text-align: justify; text-indent: 0.5in; margin-bottom: 1em;">${formatTextToParagraphs(payload.abstractContent)}</div>`;
     }
 
+    // Keywords
     if (payload.keywordsContent) {
-        html += `<p style="text-indent: 0.5in; margin-top: 0.5em;"><i>Keywords:</i> <span>${payload.keywordsContent}</span></p>`;
+        html += `<p style="text-indent: 0.5in; margin-bottom: 1em;"><i>Keywords:</i> <span>${payload.keywordsContent}</span></p>`;
     }
 
     const isStructured = paperTypeConfig[payload.selectedPaperType].hasStructuredBody;
 
     if (isStructured) {
+        // Table of Contents for structured papers
+        html += `<h2 style="text-align: center; font-weight: bold; margin-top: 2em; margin-bottom: 1em;">Table of Contents</h2>`;
+        html += `<div style="margin-bottom: 2em;">`;
+        html += `<p>Abstract........................................................................................................................ii</p>`;
+        if (payload.keywordsContent) html += `<p>Keywords.......................................................................................................................iii</p>`;
+        html += `<p>Introduction.....................................................................................................................1</p>`;
+        html += `<p>Literature Review.................................................................................................................2</p>`;
+        html += `<p>Methodology........................................................................................................................3</p>`;
+        html += `<p>Results.................................................................................................................................4</p>`;
+        html += `<p>Discussion...........................................................................................................................5</p>`;
+        html += `<p>Conclusion............................................................................................................................6</p>`;
+        html += `<p>References...........................................................................................................................7</p>`;
+        html += `</div><div style="page-break-before: always;"></div>`;
+
         const sections = [
             { title: payload.introductionTitle || "Introduction", content: payload.introductionContent },
             { title: payload.literatureReviewTitle || "Literature Review", content: payload.literatureReviewContent },
@@ -175,17 +249,18 @@ const formatAsAPA = (payload: FormatRequestPayload): string => {
 
         sections.forEach(section => {
             if (section.content) {
-                html += `<h2 style="text-align: center; font-weight: bold; margin-top: 1em; margin-bottom: 0.5em;">${section.title}</h2>`;
-                html += `<div style="text-indent: 0.5in;">${formatTextToParagraphs(section.content)}</div>`;
+                html += `<h2 style="font-weight: bold; font-size: 12pt; margin-top: 1.5em; margin-bottom: 0.5em; text-align: left;">${section.title}</h2>`;
+                html += `<div style="text-align: justify; text-indent: 0.5in;">${formatTextToParagraphs(section.content)}</div>`;
             }
         });
     } else if (payload.mainBodyContent) {
-        html += `<div style="text-indent: 0.5in; margin-top: 1em;">${formatTextToParagraphs(payload.mainBodyContent)}</div>`;
+        html += `<div style="text-align: justify; text-indent: 0.5in; margin-top: 1em;">${formatTextToParagraphs(payload.mainBodyContent)}</div>`;
     }
 
+    // References
     if (payload.referencesContent) {
-        html += `<h2 style="text-align: center; font-weight: bold; margin-top: 1em; margin-bottom: 0.5em;">References</h2>`;
-        
+        html += `<h2 style="font-weight: bold; font-size: 12pt; margin-top: 2em; margin-bottom: 1em;">References</h2>`;
+
         const referencesArray = payload.referencesContent.split('\n')
             .filter(ref => ref.trim() !== '')
             .sort((a, b) => {
@@ -195,21 +270,21 @@ const formatAsAPA = (payload: FormatRequestPayload): string => {
             });
 
         const formattedReferences = referencesArray
-            .map(ref => `<p style="margin-bottom: 0; text-indent: -0.5in; padding-left: 0.5in;">${ref.trim()}</p>`)
+            .map(ref => `<p style="margin-bottom: 0.5em; text-indent: -0.5in; padding-left: 0.5in; line-height: 2;">${ref.trim()}</p>`)
             .join('');
-            
+
         html += `<div>${formattedReferences}</div>`;
     }
 
     html += `</div>`;
     return html;
 };
-
 const formatAsMLA = (payload: FormatRequestPayload): string => {
     const today = new Date();
     const date = `${today.getDate()} ${today.toLocaleString('default', { month: 'long' })} ${today.getFullYear()}`;
     let html = `<div style="padding: 1in; font-family: 'Times New Roman', serif; font-size: 12pt; line-height: 2;">`;
 
+    // Header
     if (payload.authorName) {
         html += `<p style="margin-bottom: 0;">${payload.authorName}</p>`;
     }
@@ -217,8 +292,9 @@ const formatAsMLA = (payload: FormatRequestPayload): string => {
     html += `<p style="margin-bottom: 0;">Course Name</p>`;
     html += `<p style="margin-bottom: 1em;">${date}</p>`;
 
+    // Title
     if (payload.paperHeading) {
-        html += `<h1 style="text-align: center; font-weight: normal; font-size: 1.5rem; margin-top: 0; margin-bottom: 1em;">${payload.paperHeading}</h1>`;
+        html += `<h1 style="text-align: center; font-weight: normal; font-size: 1.5rem; margin-top: 0; margin-bottom: 1em; text-decoration: underline;">${payload.paperHeading}</h1>`;
     }
 
     const isStructured = paperTypeConfig[payload.selectedPaperType].hasStructuredBody;
@@ -244,6 +320,7 @@ const formatAsMLA = (payload: FormatRequestPayload): string => {
         html += `<div style="text-indent: 0.5in; margin-top: 0;">${formatTextToParagraphs(payload.mainBodyContent)}</div>`;
     }
 
+    // Works Cited
     if (payload.referencesContent) {
         html += `<h2 style="text-align: center; font-weight: normal; font-size: 1.5rem; margin-top: 2em; margin-bottom: 1em;">Works Cited</h2>`;
 
@@ -254,24 +331,27 @@ const formatAsMLA = (payload: FormatRequestPayload): string => {
                 const nameB = (b.match(/<[^>]+>([^<]+)<\/[^>]+>/) ? b.match(/<[^>]+>([^<]+)<\/[^>]+>/)![1] : b).split('(')[0].trim().toLowerCase();
                 return nameA.localeCompare(nameB);
             });
-            
+
         const formattedReferences = referencesArray
-            .map(ref => `<p style="margin-bottom: 0; text-indent: -0.5in; padding-left: 0.5in;">${ref.trim()}</p>`)
+            .map(ref => `<p style="margin-bottom: 0.5em; text-indent: -0.5in; padding-left: 0.5in; line-height: 2;">${ref.trim()}</p>`)
             .join('');
-            
+
         html += `<div>${formattedReferences}</div>`;
     }
 
     html += `</div>`;
     return html;
 };
-
 const formatAsIEEE = (payload: FormatRequestPayload): string => {
-    let html = `<div style="padding: 1in; font-family: 'Times New Roman', serif;">`;
-    if (payload.paperHeading) html += `<h1 style="text-align: center; font-weight: bold; font-size: 1.5rem; margin-bottom: 0.25rem;">${payload.paperHeading}</h1>`;
-    if (payload.authorName) html += `<p style="text-align: center; font-size: 1.125rem; margin-bottom: 1.5rem;">${payload.authorName}</p>`;
-    if (payload.abstractContent) html += `<p><b><em>Abstract</em>—<span>${formatTextToParagraphs(payload.abstractContent)}</span></b></p>`;
-    if (payload.keywordsContent) html += `<p><b><em>Keywords</em>—<span>${payload.keywordsContent}</span></b></p><br/>`;
+    let html = `<div style="padding: 1in; font-family: 'Times New Roman', serif; font-size: 10pt; line-height: 1.5;">`;
+
+    // Title and Author
+    if (payload.paperHeading) html += `<h1 style="text-align: center; font-weight: bold; font-size: 24pt; margin-bottom: 0.5rem;">${payload.paperHeading}</h1>`;
+    if (payload.authorName) html += `<p style="text-align: center; font-size: 11pt; margin-bottom: 1rem;">${payload.authorName}</p>`;
+
+    // Abstract and Keywords
+    if (payload.abstractContent) html += `<p style="margin-bottom: 0.5rem;"><b><em>Abstract</em></b>—${formatTextToParagraphs(payload.abstractContent)}</p>`;
+    if (payload.keywordsContent) html += `<p style="margin-bottom: 1rem;"><b><em>Index Terms</em></b>—${payload.keywordsContent}</p>`;
 
     const isStructured = paperTypeConfig[payload.selectedPaperType].hasStructuredBody;
 
@@ -289,28 +369,30 @@ const formatAsIEEE = (payload: FormatRequestPayload): string => {
         sectionsToRender["MAIN BODY"] = payload.mainBodyContent;
     }
 
-    html += `<div style="column-count: 2; column-gap: 20px;">`;
+    html += `<div style="column-count: 2; column-gap: 0.25in;">`;
     let romanNumeral = 1;
     Object.entries(sectionsToRender).forEach(([title, content]) => {
         if (content) {
-            html += `<h2 style="font-weight: bold; text-transform: uppercase; font-size: 0.875rem; margin-top: 1rem;"> ${toRoman(romanNumeral++)}. <span>${title}</span></h2><div>${formatTextToParagraphs(content)}</div>`;
+            html += `<h2 style="font-weight: bold; text-transform: uppercase; font-size: 10pt; margin-top: 1rem; margin-bottom: 0.5rem;">${toRoman(romanNumeral++)}. ${title}</h2><div style="font-size: 10pt; text-align: justify;">${formatTextToParagraphs(content)}</div>`;
         }
     });
     html += `</div>`;
 
     if (payload.referencesContent) {
-        html += `<h2 style="font-weight: bold; text-transform: uppercase; font-size: 0.875rem; margin-top: 1rem; column-span: all;">References</h2>`;
-        
-        const referencesArray = payload.referencesContent.split('\n')
-            .filter(ref => ref.trim() !== '');
+        html += `<h2 style="font-weight: bold; text-transform: uppercase; font-size: 10pt; margin-top: 1rem; column-span: all;">References</h2>`;
+
+        const referencesArray = payload.referencesContent
+            .split('\n')
+            .filter(ref => ref.trim() !== '')
+            .sort();
 
         const formattedReferences = referencesArray
-            .map((ref, index) => `<p style="margin-bottom: 0; text-indent: -1.25em; padding-left: 1.25em;">[${index + 1}] <span>${ref.trim()}</span></p>`)
+            .map((ref, index) => `<p style="margin-bottom: 0.25rem; text-indent: -0.25in; padding-left: 0.25in; font-size: 9pt;">[${index + 1}] ${ref.trim()}</p>`)
             .join('');
-            
-        html += `<div style="column-count: 2; column-gap: 20px; font-size: 0.9em; line-height: 1.4;">${formattedReferences}</div>`;
+
+        html += `<div style="column-count: 2; column-gap: 0.25in; font-size: 9pt; line-height: 1.4;">${formattedReferences}</div>`;
     }
-    
+
     html += `</div>`;
     return html;
 };
@@ -318,22 +400,26 @@ const formatAsIEEE = (payload: FormatRequestPayload): string => {
 const formatAsSpringer = (payload: FormatRequestPayload): string => {
     let html = `<div style="padding: 1in; font-family: 'Times New Roman', serif; font-size: 11pt; line-height: 1.5;">`;
 
+    // Title and Author
     if (payload.paperHeading) {
-        html += `<h1 style="text-align: center; font-size: 16pt; font-weight: bold; margin-bottom: 0.5em;">${payload.paperHeading}</h1>`;
+        html += `<h1 style="text-align: center; font-size: 18pt; font-weight: bold; margin-bottom: 0.5em;">${payload.paperHeading}</h1>`;
     }
     if (payload.authorName) {
-        html += `<p style="text-align: center; font-size: 10pt; margin-bottom: 1.5em;">${payload.authorName}</p>`;
+        html += `<p style="text-align: center; font-size: 12pt; margin-bottom: 1em;">${payload.authorName}<sup>1</sup></p>`;
+        html += `<p style="text-align: center; font-size: 10pt; margin-bottom: 1.5em;"><sup>1</sup>Institutional Affiliation, City, Country</p>`;
     }
 
+    // Abstract
     if (payload.abstractContent) {
-        html += `<div style="font-size: 10pt; border: 1px solid #eee; padding: 10px; margin-bottom: 1.5em;">`;
-        html += `<p style="font-weight: bold; margin-bottom: 0.5em;">Abstract</p>`;
-        html += `<div>${formatTextToParagraphs(payload.abstractContent)}</div>`;
+        html += `<div style="font-size: 10pt; border: 1px solid #ccc; padding: 15px; margin-bottom: 1.5em; background-color: #f9f9f9;">`;
+        html += `<p style="font-weight: bold; margin-bottom: 0.5em; text-transform: uppercase;">Abstract</p>`;
+        html += `<div style="text-align: justify;">${formatTextToParagraphs(payload.abstractContent)}</div>`;
         html += `</div>`;
     }
 
+    // Keywords
     if (payload.keywordsContent) {
-        html += `<p style="font-size: 10pt; margin-bottom: 1.5em;"><b>Keywords:</b> <span>${payload.keywordsContent}</span></p>`;
+        html += `<p style="font-size: 10pt; margin-bottom: 1.5em;"><b>Keywords:</b> <span style="font-style: italic;">${payload.keywordsContent}</span></p>`;
     }
 
     const isStructured = paperTypeConfig[payload.selectedPaperType].hasStructuredBody;
@@ -349,55 +435,63 @@ const formatAsSpringer = (payload: FormatRequestPayload): string => {
         if (payload.conclusionContent) sectionsToRender[payload.conclusionTitle || "Conclusion"] = payload.conclusionContent;
         if (payload.recommendationContent) sectionsToRender[payload.recommendationTitle || "Recommendation"] = payload.recommendationContent;
     } else if (payload.mainBodyContent) {
-        sectionsToRender["MAIN BODY"] = payload.mainBodyContent;
+        sectionsToRender["Main Body"] = payload.mainBodyContent;
     }
 
     let sectionNumber = 1;
     Object.entries(sectionsToRender).forEach(([title, content]) => {
         if (content) {
-            html += `<h2 style="font-size: 13pt; font-weight: bold; margin-top: 1.5em; margin-bottom: 0.5em;">${sectionNumber++} <span>${title}</span></h2>`;
-            html += `<div>${formatTextToParagraphs(content)}</div>`;
+            html += `<h2 style="font-size: 14pt; font-weight: bold; margin-top: 2em; margin-bottom: 0.5em;">${sectionNumber}. ${title}</h2>`;
+            html += `<div style="text-align: justify;">${formatTextToParagraphs(content)}</div>`;
         }
+        sectionNumber++;
     });
 
+    // References
     if (payload.referencesContent) {
-        html += `<h2 style="font-size: 14pt; font-weight: bold; margin-top: 2em; margin-bottom: 1em;">References</h2>`;
-        
-        const formattedReferences = payload.referencesContent.split('\n')
+        html += `<h2 style="font-size: 14pt; font-weight: bold; margin-top: 2.5em; margin-bottom: 1em;">References</h2>`;
+
+        const referencesArray = payload.referencesContent.split('\n')
             .filter((ref: string) => ref.trim() !== '')
+            .sort();
+
+        const formattedReferences = referencesArray
             .map((ref: string, index: number) => {
-                const hangingIndentStyle = `text-indent: -0.2in; padding-left: 0.2in;`;
+                const hangingIndentStyle = `text-indent: -0.25in; padding-left: 0.25in;`;
                 return `<p style="margin-bottom: 0.5em; ${hangingIndentStyle}">[${index + 1}] ${ref.trim()}</p>`;
             })
             .join('');
-            
+
         html += `<div style="font-size: 10pt;">${formattedReferences}</div>`;
     }
 
     html += `</div>`;
     return html;
 };
-
 const formatAsFPI = (payload: FormatRequestPayload): string => {
-    let html = `<div style="padding: 1in; font-family: 'Times New Roman', serif; font-size: 12pt;">`;
-    const bodyLineHeight = 1.5;
+    let html = `<div style="padding: 1in; font-family: 'Times New Roman', serif; font-size: 12pt; line-height: 1.5;">`;
 
+    // Title Page
     if (payload.paperHeading) {
-        html += `<h1 style="text-align: center; font-weight: bold; font-size: 16pt; margin-bottom: 0.5em;">${payload.paperHeading}</h1>`;
+        html += `<div style="text-align: center; margin-bottom: 2in;">`;
+        html += `<h1 style="font-size: 18pt; font-weight: bold; margin-bottom: 1in; text-transform: uppercase;">${payload.paperHeading}</h1>`;
+        if (payload.authorName) {
+            html += `<p style="font-size: 14pt; margin-bottom: 0.5in;">${payload.authorName}</p>`;
+            html += `<p style="font-size: 12pt;">Department of Computer Engineering<br/>The Federal Polytechnic, Ilaro<br/>Ogun State, Nigeria</p>`;
+        }
+        html += `<p style="margin-top: 1in; font-size: 12pt;">${new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}</p>`;
+        html += `</div><div style="page-break-before: always;"></div>`;
     }
 
-    if (payload.authorName) {
-        html += `<p style="text-align: center; font-weight: bold; font-size: 12pt; margin-bottom: 0;">${payload.authorName}</p>`;
-        html += `<p style="text-align: center; font-size: 10pt; margin-top: 0; margin-bottom: 1.5em;">Department Name, The Federal Polytechnic, Ilaro, Ogun State, Nigeria.</p>`;
-    }
-
+    // Abstract
     if (payload.abstractContent) {
-        html += `<h2 style="text-align: center; font-weight: bold; font-size: 12pt; margin-top: 1em; margin-bottom: 0.5em;">ABSTRACT</h2>`;
-        html += `<div style="text-align: justify; line-height: 1; margin-bottom: 1em;">${formatTextToParagraphs(payload.abstractContent)}</div>`;
+        html += `<h2 style="text-align: center; font-weight: bold; font-size: 14pt; margin-top: 1em; margin-bottom: 0.5em; text-transform: uppercase;">Abstract</h2>`;
+        html += `<div style="text-align: justify; text-indent: 0.5in; margin-bottom: 1em;">${formatTextToParagraphs(payload.abstractContent)}</div>`;
     }
 
+    // Keywords
     if (payload.keywordsContent) {
-        html += `<p style="margin-bottom: 1em;"><b><i>Keywords:</i></b> <span>${payload.keywordsContent}</span></p>`;
+        html += `<p style="text-indent: 0.5in; margin-bottom: 1em;"><b><i>Keywords:</i></b> <span>${payload.keywordsContent}</span></p>`;
     }
 
     const isStructured = paperTypeConfig[payload.selectedPaperType].hasStructuredBody;
@@ -419,13 +513,15 @@ const formatAsFPI = (payload: FormatRequestPayload): string => {
     let sectionNumber = 1;
     Object.entries(sectionsToRender).forEach(([title, content]) => {
         if (content) {
-            html += `<h2 style="font-weight: bold; font-size: 12pt; text-align: left; margin-top: 1.5em; margin-bottom: 0.5em;">${sectionNumber++}. <span>${title}</span></h2>`;
-            html += `<div style="text-align: justify; line-height: ${bodyLineHeight};">${formatTextToParagraphs(content)}</div>`;
+            html += `<h2 style="font-weight: bold; font-size: 14pt; text-align: left; margin-top: 2em; margin-bottom: 0.5em;">${sectionNumber}. ${title}</h2>`;
+            html += `<div style="text-align: justify; text-indent: 0.5in;">${formatTextToParagraphs(content)}</div>`;
         }
+        sectionNumber++;
     });
 
+    // References
     if (payload.referencesContent) {
-        html += `<h2 style="text-align: center; font-weight: bold; font-size: 12pt; margin-top: 2em; margin-bottom: 1em;">REFERENCES</h2>`;
+        html += `<h2 style="text-align: center; font-weight: bold; font-size: 14pt; margin-top: 2.5em; margin-bottom: 1em; text-transform: uppercase;">References</h2>`;
 
         const referencesArray = payload.referencesContent.split('\n')
             .filter(ref => ref.trim() !== '')
@@ -436,7 +532,146 @@ const formatAsFPI = (payload: FormatRequestPayload): string => {
             });
 
         const formattedReferences = referencesArray
-            .map(ref => `<p style="margin-bottom: 0.5em; text-indent: -0.5in; padding-left: 0.5in; line-height: ${bodyLineHeight}; text-align: justify;">${ref.trim()}</p>`)
+            .map(ref => `<p style="margin-bottom: 0.5em; text-indent: -0.5in; padding-left: 0.5in; line-height: 1.5; text-align: justify;">${ref.trim()}</p>`)
+            .join('');
+
+        html += `<div>${formattedReferences}</div>`;
+    }
+
+    html += `</div>`;
+    return html;
+};
+
+// Helper function to extract subheadings from content
+const extractSubheadings = (content: string): string[] => {
+    if (!content) return [];
+
+    const lines = content.split('\n');
+    const subheadings: string[] = [];
+
+    for (const line of lines) {
+        const trimmedLine = line.trim();
+
+        // Check if this looks like a subheading
+        const isSubheading = (
+            trimmedLine.length > 0 &&
+            trimmedLine.length < 100 && // Reasonable subheading length
+            (trimmedLine === trimmedLine.toUpperCase() || // All caps
+             /^\d+\./.test(trimmedLine) || // Numbered (1., 2., etc.)
+             /^[A-Z][^.!?]*$/.test(trimmedLine) && trimmedLine.length < 50) // Title case, short
+        );
+
+        if (isSubheading) {
+            subheadings.push(trimmedLine);
+        }
+    }
+
+    return subheadings;
+};
+
+// Helper function to estimate page number based on content length
+const estimatePageNumber = (content: string, basePage: number, previousContentLength: number): number => {
+    // Rough estimation: ~3000 characters per page
+    const charsPerPage = 3000;
+    const totalChars = content.length + previousContentLength;
+    return basePage + Math.floor(totalChars / charsPerPage);
+};
+
+const formatAsProjectWriteup = (payload: FormatRequestPayload): string => {
+    let html = `<div style="padding: 1in; font-family: 'Times New Roman', serif; font-size: 12pt; line-height: 1.5;">`;
+
+    // Title Page
+    if (payload.paperHeading) {
+        html += `<div style="text-align: center; margin-bottom: 2in;">`;
+        html += `<h1 style="font-size: 18pt; font-weight: bold; margin-bottom: 1in; text-transform: uppercase;">${payload.paperHeading}</h1>`;
+        if (payload.authorName) {
+            html += `<p style="font-size: 14pt; margin-bottom: 0.5in;">${payload.authorName}</p>`;
+            html += `<p style="font-size: 12pt;">Department of Computer Engineering<br/>The Federal Polytechnic, Ilaro<br/>Ogun State, Nigeria</p>`;
+        }
+        html += `<p style="margin-top: 1in; font-size: 12pt;">${new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}</p>`;
+        html += `</div><div style="page-break-before: always;"></div>`;
+    }
+
+    // Abstract
+    if (payload.abstractContent) {
+        html += `<h2 style="text-align: center; font-weight: bold; font-size: 14pt; margin-top: 1em; margin-bottom: 0.5em; text-transform: uppercase;">Abstract</h2>`;
+        html += `<div style="text-align: justify; text-indent: 0.5in; margin-bottom: 1em;">${formatTextToParagraphs(payload.abstractContent)}</div>`;
+    }
+
+    // Keywords
+    if (payload.keywordsContent) {
+        html += `<p style="text-indent: 0.5in; margin-bottom: 1em;"><b><i>Keywords:</i></b> <span>${payload.keywordsContent}</span></p>`;
+    }
+
+    // Generate dynamic Table of Contents
+    html += `<h2 style="text-align: center; font-weight: bold; font-size: 14pt; margin-top: 2em; margin-bottom: 1em; text-transform: uppercase;">Table of Contents</h2>`;
+    html += `<div style="margin-bottom: 2em;">`;
+
+    // Static entries
+    html += `<p>Abstract........................................................................................................................ii</p>`;
+    if (payload.keywordsContent) html += `<p>Keywords.......................................................................................................................iii</p>`;
+
+    // Main sections with subheadings
+    const sections = [
+        { title: payload.introductionTitle || "Introduction", content: payload.introductionContent, number: 1 },
+        { title: payload.literatureReviewTitle || "Literature Review", content: payload.literatureReviewContent, number: 2 },
+        { title: payload.methodologyTitle || "Methodology", content: payload.methodologyContent, number: 3 },
+        { title: payload.resultsTitle || "Results and Analysis", content: payload.resultsContent, number: 4 },
+        { title: payload.discussionTitle || "Discussion", content: payload.discussionContent, number: 5 },
+        { title: payload.conclusionTitle || "Conclusion", content: payload.conclusionContent, number: 6 },
+        { title: payload.recommendationTitle || "Recommendations", content: payload.recommendationContent, number: 7 },
+    ];
+
+    let currentPage = 1;
+    let accumulatedLength = 0;
+
+    sections.forEach(section => {
+        if (section.content) {
+            // Main section entry
+            const sectionPage = estimatePageNumber(section.content, currentPage, accumulatedLength);
+            const dots = '.'.repeat(Math.max(1, 100 - section.title.length));
+            html += `<p>${section.number}. ${section.title}${dots}${sectionPage}</p>`;
+
+            // Extract and add subheadings
+            const subheadings = extractSubheadings(section.content);
+            subheadings.forEach(subheading => {
+                const subPage = estimatePageNumber(subheading, sectionPage, accumulatedLength);
+                const subDots = '.'.repeat(Math.max(1, 95 - subheading.length));
+                html += `<p style="margin-left: 1em; font-style: italic;">${subheading}${subDots}${subPage}</p>`;
+            });
+
+            accumulatedLength += section.content.length;
+            currentPage = sectionPage;
+        }
+    });
+
+    // References
+    const referencesPage = estimatePageNumber(payload.referencesContent || '', currentPage, accumulatedLength);
+    html += `<p>References.....................................................................................................................${referencesPage}</p>`;
+    html += `</div><div style="page-break-before: always;"></div>`;
+
+    // Main Content Sections
+    sections.forEach(section => {
+        if (section.content) {
+            html += `<h2 style="font-weight: bold; font-size: 14pt; margin-top: 1.5em; margin-bottom: 0.5em;">${section.number}. ${section.title}</h2>`;
+            html += `<div style="text-align: justify; text-indent: 0.5in;">${formatTextToParagraphs(section.content)}</div>`;
+        }
+    });
+
+    // References
+    if (payload.referencesContent) {
+        html += `<h2 style="font-weight: bold; font-size: 14pt; margin-top: 2em; margin-bottom: 1em;">References</h2>`;
+
+        const referencesArray = payload.referencesContent.split('\n')
+            .filter(ref => ref.trim() !== '')
+            .sort((a, b) => {
+                const nameA = (a.match(/<[^>]+>([^<]+)<\/[^>]+>/) ? a.match(/<[^>]+>([^<]+)<\/[^>]+>/)![1] : a).split('(')[0].trim().toLowerCase();
+                const nameB = (b.match(/<[^>]+>([^<]+)<\/[^>]+>/) ? b.match(/<[^>]+>([^<]+)<\/[^>]+>/)![1] : b).split('(')[0].trim().toLowerCase();
+                return nameA.localeCompare(nameB);
+            });
+
+        const formattedReferences = referencesArray
+            .map((ref, index) => `<p style="margin-bottom: 0.5em; text-indent: -0.5in; padding-left: 0.5in;">[${index + 1}] ${ref.trim()}</p>`)
             .join('');
 
         html += `<div>${formattedReferences}</div>`;
@@ -447,7 +682,6 @@ const formatAsFPI = (payload: FormatRequestPayload): string => {
 };
 
 // --- API & FORMATTING SIMULATION ---
-
 const createPayload = (state: PaperContentState): FormatRequestPayload => ({
     paperHeading: state.paperHeading,
     authorName: state.authorName,
@@ -475,7 +709,6 @@ const createPayload = (state: PaperContentState): FormatRequestPayload => ({
         mainBodyContent: state.mainContent,
     })
 });
-
 const simulateFormatPreviewApi = (payload: FormatRequestPayload): Promise<string> => {
     return new Promise((resolve) => {
         setTimeout(() => {
@@ -485,7 +718,13 @@ const simulateFormatPreviewApi = (payload: FormatRequestPayload): Promise<string
                 case FormatType.MLA9: html = formatAsMLA(payload); break;
                 case FormatType.IEEE: html = formatAsIEEE(payload); break;
                 case FormatType.Springer: html = formatAsSpringer(payload); break;
-                case FormatType.FPI: html = formatAsFPI(payload); break;
+                case FormatType.FPI:
+                    if (payload.selectedPaperType === PaperType.ProjectWriteup) {
+                        html = formatAsProjectWriteup(payload);
+                    } else {
+                        html = formatAsFPI(payload);
+                    }
+                    break;
                 default: html = `<p style="color: red;">Unsupported format selected.</p>`;
             }
             resolve(html);
@@ -493,53 +732,54 @@ const simulateFormatPreviewApi = (payload: FormatRequestPayload): Promise<string
     });
 };
 
-// --- MAIN APP COMPONENT ---
 
+// --- MAIN APP COMPONENT ---
 interface FormattedPaperProps {
     htmlContent: string;
-    setHtmlContent: (html: string) => void;
-    quillModules: any;
-    quillFormats: any;
+    setHtmlContent: (html: string) =>void;
 }
 
-const FormattedPaper: React.FC<FormattedPaperProps> = ({ htmlContent, setHtmlContent, quillModules, quillFormats }) => {
+const FormattedPaper: React.FC<FormattedPaperProps> = ({ htmlContent, setHtmlContent }) => {
+    const handleCommand = (command: string, value?: string) => {
+        document.execCommand(command, false, value);
+    };
+
     return (
-        <div id="formatted-paper" className="bg-white rounded-lg shadow-xl w-full h-full overflow-y-auto border border-gray-300">
-            {window.ReactQuill ? (
-                <div className="flex flex-col h-full">
-                    <window.ReactQuill
-                        theme="snow"
-                        value={htmlContent}
-                        onChange={setHtmlContent}
-                        modules={quillModules}
-                        formats={quillFormats}
-                        className="flex-grow min-h-[100px] h-full"
-                    />
-                    <style>
-                        {`
-                        #formatted-paper .ql-toolbar.ql-snow {
-                            background-color: #f0f0f0 !important;
-                            border-bottom: 1px solid #ccc !important;
-                            position: sticky;
-                            top: 0;
-                            z-index: 10;
-                        }
-                        #formatted-paper .ql-container.ql-snow {
-                            border-top: none !important;
-                            flex-grow: 1;
-                            overflow-y: auto;
-                        }
-                        `}
-                    </style>
-                </div>
-            ) : (
-                <div dangerouslySetInnerHTML={{ __html: htmlContent }} className="p-4" />
-            )}
+        <div id="formatted-paper-container" className="bg-white rounded-lg shadow-xl w-full h-full overflow-y-auto border border-gray-300">
+            <div className="toolbar p-2 border-b border-gray-300 flex gap-2 flex-wrap">
+                <button onClick={() => handleCommand('bold')} className="px-2 py-1 bg-gray-200 rounded hover:bg-gray-300 font-bold" title="Bold">B</button>
+                <button onClick={() => handleCommand('italic')} className="px-2 py-1 bg-gray-200 rounded hover:bg-gray-300 italic" title="Italic">I</button>
+                <button onClick={() => handleCommand('underline')} className="px-2 py-1 bg-gray-200 rounded hover:bg-gray-300 underline" title="Underline">U</button>
+                <button onClick={() => handleCommand('strikeThrough')} className="px-2 py-1 bg-gray-200 rounded hover:bg-gray-300 line-through" title="Strikethrough">S</button>
+                <button onClick={() => handleCommand('subscript')} className="px-2 py-1 bg-gray-200 rounded hover:bg-gray-300" title="Subscript">X₂</button>
+                <button onClick={() => handleCommand('superscript')} className="px-2 py-1 bg-gray-200 rounded hover:bg-gray-300" title="Superscript">X²</button>
+                <button onClick={() => handleCommand('insertUnorderedList')} className="px-2 py-1 bg-gray-200 rounded hover:bg-gray-300" title="Bullet List">•</button>
+                <button onClick={() => handleCommand('insertOrderedList')} className="px-2 py-1 bg-gray-200 rounded hover:bg-gray-300" title="Numbered List">1.</button>
+                <button onClick={() => handleCommand('indent')} className="px-2 py-1 bg-gray-200 rounded hover:bg-gray-300" title="Increase Indent">→</button>
+                <button onClick={() => handleCommand('outdent')} className="px-2 py-1 bg-gray-200 rounded hover:bg-gray-300" title="Decrease Indent">←</button>
+                <button onClick={() => handleCommand('justifyLeft')} className="px-2 py-1 bg-gray-200 rounded hover:bg-gray-300" title="Align Left">⬅</button>
+                <button onClick={() => handleCommand('justifyCenter')} className="px-2 py-1 bg-gray-200 rounded hover:bg-gray-300" title="Align Center">⬌</button>
+                <button onClick={() => handleCommand('justifyRight')} className="px-2 py-1 bg-gray-200 rounded hover:bg-gray-300" title="Align Right">➡</button>
+                <button onClick={() => handleCommand('justifyFull')} className="px-2 py-1 bg-gray-200 rounded hover:bg-gray-300" title="Justify">⬌⬌</button>
+                <button onClick={() => handleCommand('formatBlock', 'h1')} className="px-2 py-1 bg-gray-200 rounded hover:bg-gray-300" title="Heading 1">H1</button>
+                <button onClick={() => handleCommand('formatBlock', 'h2')} className="px-2 py-1 bg-gray-200 rounded hover:bg-gray-300" title="Heading 2">H2</button>
+                <button onClick={() => handleCommand('formatBlock', 'h3')} className="px-2 py-1 bg-gray-200 rounded hover:bg-gray-300" title="Heading 3">H3</button>
+                <button onClick={() => handleCommand('formatBlock', 'p')} className="px-2 py-1 bg-gray-200 rounded hover:bg-gray-300" title="Paragraph">P</button>
+                <button onClick={() => handleCommand('formatBlock', 'blockquote')} className="px-2 py-1 bg-gray-200 rounded hover:bg-gray-300" title="Blockquote">"</button>
+                <button onClick={() => handleCommand('removeFormat')} className="px-2 py-1 bg-gray-200 rounded hover:bg-gray-300" title="Remove Formatting">⌫</button>
+                <button onClick={() => handleCommand('undo')} className="px-2 py-1 bg-gray-200 rounded hover:bg-gray-300" title="Undo">↶</button>
+                <button onClick={() => handleCommand('redo')} className="px-2 py-1 bg-gray-200 rounded hover:bg-gray-300" title="Redo">↷</button>
+            </div>
+            <div
+                className="p-4 h-full overflow-y-auto"
+                contentEditable
+                dangerouslySetInnerHTML={{ __html: htmlContent }}
+                onInput={(e) => setHtmlContent(e.currentTarget.innerHTML)}
+            />
         </div>
     );
 };
 
-// WYSIWYG Editor Component
 interface WysiwygEditorProps {
     value: string;
     onChange: (value: string) => void;
@@ -548,45 +788,17 @@ interface WysiwygEditorProps {
 }
 
 const WysiwygEditor: React.FC<WysiwygEditorProps> = ({ value, onChange, placeholder, height = "200px" }) => {
-    const quillModules = {
-        toolbar: [
-            ['bold', 'italic', 'underline', 'strike'],
-            [{ 'header': [1, 2, 3, 4, 5, 6, false] }],
-            [{ 'list': 'ordered'}, { 'list': 'bullet' }],
-            [{ 'align': [] }],
-            ['link', 'image'],
-            ['clean']
-        ],
-    };
-
-    const quillFormats = [
-        'header', 'bold', 'italic', 'underline', 'strike', 'list', 'bullet', 'align', 'link', 'image'
-    ];
-
     return (
-        <div className="wysiwyg-editor-container border border-gray-300 rounded-lg overflow-hidden">
-            {window.ReactQuill ? (
-                <window.ReactQuill
-                    theme="snow"
-                    value={value}
-                    onChange={onChange}
-                    modules={quillModules}
-                    formats={quillFormats}
-                    placeholder={placeholder}
-                    style={{ height, minHeight: height }}
-                />
-            ) : (
-                <StyledTextarea
-                    value={value}
-                    onChange={(e) => onChange(e.target.value)}
-                    placeholder={placeholder}
-                    style={{ height, minHeight: height }}
-                    className="w-full p-3"
-                />
-            )}
-        </div>
+        <textarea
+            className="wysiwyg-editor-container border border-gray-300 rounded-lg p-2 w-full"
+            style={{ height }}
+            value={value}
+            onChange={(e) => onChange(e.target.value)}
+            placeholder={placeholder}
+        />
     );
 };
+
 
 const App: React.FC = () => {
     const [areDownloadScriptsLoaded, setAreDownloadScriptsLoaded] = useState(false);
@@ -623,40 +835,19 @@ const App: React.FC = () => {
     const configKey = selectedPaperType;
     const { hasAbstract, hasKeywords, hasStructuredBody } = paperTypeConfig[configKey];
 
-    // Quill toolbar configuration for the main preview
-    const quillModules = {
-        toolbar: [
-            ['bold', 'italic', 'underline', 'strike'],
-            [{ 'header': [1, 2, 3, 4, 5, 6, false] }],
-            [{ 'list': 'ordered'}, { 'list': 'bullet' }],
-            [{ 'align': [] }],
-            ['link', 'image'],
-            ['clean']
-        ],
-    };
-
-    const quillFormats = [
-        'header', 'bold', 'italic', 'underline', 'strike', 'list', 'bullet', 'align', 'link', 'image'
-    ];
-
-    // Load external scripts for downloads and WYSIWYG editors
     useEffect(() => {
         const scriptsToLoad = [
-            'https://unpkg.com/react@18/umd/react.production.min.js',
-            'https://unpkg.com/react-dom@18/umd/react-dom.production.min.js',
             'https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js',
             'https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js',
-            'https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js',
-            'https://cdn.jsdelivr.net/npm/quill@1.3.7/dist/quill.min.js',
-            'https://cdn.jsdelivr.net/npm/react-quill@2.0.0/dist/react-quill.min.js',
-            'https://cdn.jsdelivr.net/npm/quill@1.3.7/dist/quill.snow.css'
+            'https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js'
         ];
 
         let loadedCount = 0;
         const totalScripts = scriptsToLoad.length;
         const scriptErrors: string[] = [];
 
-        const handleScriptLoad = (src: string) => {
+        // eslint-disable-next-line @typescript-eslint/no-unused-vars
+        const handleScriptLoad = (_src: string) => {
             loadedCount++;
             if (loadedCount === totalScripts && scriptErrors.length === 0) {
                 setAreDownloadScriptsLoaded(true);
@@ -702,7 +893,6 @@ const App: React.FC = () => {
         };
     }, []);
 
-    // Reset fields when paper type changes
     useEffect(() => {
         if (!hasAbstract) setAbstract("");
         if (!hasKeywords) setKeywords("");
@@ -734,7 +924,6 @@ const App: React.FC = () => {
         }
     }, [selectedPaperType, hasAbstract, hasKeywords, hasStructuredBody]);
 
-    // Format content when inputs change
     useEffect(() => {
         const currentState: PaperContentState = {
             paperHeading, authorName, selectedFormat, selectedPaperType,
@@ -750,7 +939,22 @@ const App: React.FC = () => {
             const payload = createPayload(currentState);
 
             simulateFormatPreviewApi(payload)
-                .then(html => setFormattedContent(html))
+                .then(html => {
+                    setFormattedContent(html);
+                    // Save to localStorage for demo purposes
+                    const savedPapers = JSON.parse(localStorage.getItem('formattedPapers') || '[]');
+                    const paperData = {
+                        id: Date.now(),
+                        title: payload.paperHeading || 'Untitled Paper',
+                        format: payload.selectedFormat,
+                        content: html,
+                        timestamp: new Date().toISOString()
+                    };
+                    savedPapers.unshift(paperData); // Add to beginning
+                    // Keep only last 10 papers
+                    if (savedPapers.length > 10) savedPapers.splice(10);
+                    localStorage.setItem('formattedPapers', JSON.stringify(savedPapers));
+                })
                 .catch(err => {
                     console.error("Error formatting preview:", err);
                     setError("Could not load preview. Please try again.");
@@ -796,36 +1000,63 @@ const App: React.FC = () => {
         setIsLoading(true);
         setError(null);
 
-        const paperElement = document.getElementById('formatted-paper');
-        if (!paperElement || !window.html2canvas || !window.jspdf) {
+        const tempContainer = document.createElement('div');
+        tempContainer.style.position = 'absolute';
+        tempContainer.style.left = '-9999px';
+        tempContainer.style.width = '8.5in';
+        tempContainer.innerHTML = formattedContent;
+        document.body.appendChild(tempContainer);
+    
+        if (!tempContainer || !window.html2canvas || !window.jspdf) {
             setError("PDF download library not ready. Please try again in a moment.");
             setIsLoading(false);
+            document.body.removeChild(tempContainer);
             return;
         }
         
         try {
             const { jsPDF } = window.jspdf;
-            const canvas = await window.html2canvas(paperElement, { scale: 2 });
+            const canvas = await window.html2canvas(tempContainer, { scale: 2 });
             const imgData = canvas.toDataURL('image/png');
             
             const pdf = new jsPDF({
                 orientation: 'portrait',
                 unit: 'px',
+                format: 'a4'
             });
+
             const pdfWidth = pdf.internal.pageSize.getWidth();
             const pdfHeight = pdf.internal.pageSize.getHeight();
-            
-            const imgWidth = canvas.width;
-            const imgHeight = canvas.height;
+            const imgProps = pdf.getImageProperties(imgData);
+            const imgWidth = imgProps.width;
+            const imgHeight = imgProps.height;
             const ratio = Math.min(pdfWidth / imgWidth, pdfHeight / imgHeight);
-            
-            pdf.addImage(imgData, 'PNG', 0, 0, imgWidth * ratio, imgHeight * ratio);
-            pdf.save('formatted_paper.pdf');
+
+            let currentHeight = 0;
+            const pageHeight = pdf.internal.pageSize.height;
+            const canvasPage = document.createElement('canvas');
+            canvasPage.width = imgWidth;
+            canvasPage.height = pageHeight / ratio;
+
+            const ctx = canvasPage.getContext('2d');
+            while (currentHeight < imgHeight) {
+                ctx?.drawImage(canvas, 0, currentHeight, imgWidth, canvasPage.height, 0, 0, imgWidth, canvasPage.height);
+                const pageData = canvasPage.toDataURL('image/png', 1.0);
+                
+                if (currentHeight > 0) {
+                    pdf.addPage();
+                }
+                pdf.addImage(pageData, 'PNG', 0, 0, pdfWidth, 0, undefined, 'FAST');
+                currentHeight += canvasPage.height;
+            }
+
+            pdf.save(`${(paperHeading.replace(/<[^>]*>?/gm, '') || 'formatted-paper').substring(0, 50)}.pdf`);
         } catch (err) {
             console.error("PDF generation failed:", err);
             setError("Failed to generate PDF. Please try again.");
         } finally {
             setIsLoading(false);
+            document.body.removeChild(tempContainer);
         }
     };
 
@@ -841,10 +1072,10 @@ const App: React.FC = () => {
         }
 
         try {
-            const filename = `${paperHeading || 'formatted-paper'}.doc`;
-            const htmlContent = formattedContent;
-
-            const blob = new Blob(['<!DOCTYPE html><html><head><meta charset="UTF-8"></head><body>', htmlContent, '</body></html>'], {
+            const cleanPaperHeading = paperHeading.replace(/<[^>]*>?/gm, '');
+            const filename = `${cleanPaperHeading || 'formatted-paper'}.doc`;
+            
+            const blob = new Blob(['<!DOCTYPE html><html><head><meta charset="UTF-8"></head><body>', formattedContent, '</body></html>'], {
                 type: 'application/msword'
             });
 
@@ -1086,8 +1317,6 @@ const App: React.FC = () => {
                                 <FormattedPaper 
                                     htmlContent={formattedContent} 
                                     setHtmlContent={setFormattedContent} 
-                                    quillModules={quillModules} 
-                                    quillFormats={quillFormats} 
                                 />
                             </div>
                         )}
