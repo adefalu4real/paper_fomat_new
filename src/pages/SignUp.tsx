@@ -3,7 +3,7 @@ import { NavLink, useNavigate } from "react-router-dom"; // Corrected import syn
 import { Eye, EyeOff, LoaderCircle, FileText } from "lucide-react"; // Ensured FileText is imported
 import { toast } from "react-toastify";
 
-export  const REGISTER_API_URL = "https://paper-format-backend-fuiv.vercel.app/api/v1/user/create";
+export  const REGISTER_API_URL = "https://futera.onrender.com/api/v1/user/create";
 
 
 export default function SignUp() {
