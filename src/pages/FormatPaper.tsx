@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import { Link } from "react-router-dom";
 
 enum PaperType {
     Essay = "Essay",
@@ -88,16 +89,18 @@ const HeaderComponent: React.FC = () => (
     <header className="bg-white shadow-md sticky top-0 z-20 border-b-4 border-blue-600">
         <div className="max-w-7xl mx-auto p-4 flex justify-between items-center">
             <div>
-                <h1 className="text-3xl font-bold" style={{
-                    background: 'linear-gradient(to right, #3b82f6, #9333ea)',
-                    WebkitBackgroundClip: 'text',
-                    WebkitTextFillColor: 'transparent',
-                    backgroundClip: 'text',
-                    color: 'transparent',
-                    letterSpacing: '-0.01562em'
-                }}>
-                    FuTera
-                </h1>
+                <Link to="/">
+                    <h1 className="text-3xl font-bold cursor-pointer" style={{
+                        background: 'linear-gradient(to right, #3b82f6, #9333ea)',
+                        WebkitBackgroundClip: 'text',
+                        WebkitTextFillColor: 'transparent',
+                        backgroundClip: 'text',
+                        color: 'transparent',
+                        letterSpacing: '-0.01562em'
+                    }}>
+                        FuTera
+                    </h1>
+                </Link>
             </div>
         </div>
     </header>
