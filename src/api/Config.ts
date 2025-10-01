@@ -37,9 +37,9 @@ export const apiRequest = async <T>(url: string, options: RequestInit = {}): Pro
       headers: { ...defaultHeaders, ...options.headers }
     });
 
-    // Handle different HTTP status codes
+   
     if (response.status === 401) {
-      // Token expired or invalid
+      
       localStorage.removeItem('authToken');
       localStorage.removeItem('adminToken');
       localStorage.removeItem('token');
