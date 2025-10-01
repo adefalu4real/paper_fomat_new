@@ -4,7 +4,7 @@ import { Eye, EyeOff, LoaderCircle, FileText } from "lucide-react"; // Using Luc
 import { toast } from "react-toastify";
 
 
-const REGISTER_API_URL = "https://futera.onrender.com/api/v1/v1/user/login";
+const REGISTER_API_URL = "https://futera.onrender.com/api/v1/user/login";
 
 
 export default function LoginPage() {
