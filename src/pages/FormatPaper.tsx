@@ -642,8 +642,9 @@ const formatAsProjectWriteup = (payload: FormatRequestPayload): string => {
             if (section.content) {
                 // Main section entry
                 const sectionPage = estimatePageNumber(section.content, currentPage, accumulatedLength);
-                const dots = '.'.repeat(Math.max(1, 100 - section.title.length));
-                html += `<p>${section.number}. ${section.title}${dots}${sectionPage}</p>`;
+                const fullTitle = `Chapter ${section.number}: ${section.title}`;
+                const dots = '.'.repeat(Math.max(1, 100 - fullTitle.length));
+                html += `<p>${fullTitle}${dots}${sectionPage}</p>`;
 
                 // Extract and add subheadings
                 const subheadings = extractSubheadings(section.content);
@@ -677,7 +678,7 @@ const formatAsProjectWriteup = (payload: FormatRequestPayload): string => {
 
     sections.forEach(section => {
         if (section.content) {
-            html += `<h2 style="font-weight: bold; font-size: 14pt; margin-top: 1.5em; margin-bottom: 0.5em;">${section.number}. ${section.title}</h2>`;
+            html += `<h2 style="font-weight: bold; font-size: 14pt; margin-top: 1.5em; margin-bottom: 0.5em;">Chapter ${section.number}: ${section.title}</h2>`;
             html += `<div style="text-align: justify; text-indent: 0.5in;">${formatTextToParagraphs(section.content)}</div>`;
         }
     });
