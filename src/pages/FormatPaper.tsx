@@ -42,6 +42,8 @@ interface PaperContentState {
     discussionTitle: string;
     conclusionTitle: string;
     recommendationTitle: string;
+    preliminaryPages: string;
+    includeTOC: boolean;
 }
 
 // Interface for the data payload sent to formatting functions
@@ -53,6 +55,8 @@ interface FormatRequestPayload {
     abstractContent: string;
     keywordsContent: string;
     referencesContent: string;
+    preliminaryPages?: string;
+    includeTOC?: boolean;
     mainBodyContent?: string;
     introductionContent?: string;
     literatureReviewContent?: string;
@@ -583,6 +587,11 @@ const estimatePageNumber = (content: string, basePage: number, previousContentLe
 const formatAsProjectWriteup = (payload: FormatRequestPayload): string => {
     let html = `<div style="padding: 1in; font-family: 'Times New Roman', serif; font-size: 12pt; line-height: 1.5;">`;
 
+    // Preliminary Pages
+    if (payload.preliminaryPages) {
+        html += `<div>${formatTextToParagraphs(payload.preliminaryPages)}</div><div style="page-break-before: always;"></div>`;
+    }
+
     // Title Page
     if (payload.paperHeading) {
         html += `<div style="text-align: center; margin-bottom: 2in;">`;
@@ -606,15 +615,56 @@ const formatAsProjectWriteup = (payload: FormatRequestPayload): string => {
         html += `<p style="text-indent: 0.5in; margin-bottom: 1em;"><b><i>Keywords:</i></b> <span>${payload.keywordsContent}</span></p>`;
     }
 
-    // Generate dynamic Table of Contents
-    html += `<h2 style="text-align: center; font-weight: bold; font-size: 14pt; margin-top: 2em; margin-bottom: 1em; text-transform: uppercase;">Table of Contents</h2>`;
-    html += `<div style="margin-bottom: 2em;">`;
+    // Generate dynamic Table of Contents (only if includeTOC is true)
+    if (payload.includeTOC) {
+        html += `<h2 style="text-align: center; font-weight: bold; font-size: 14pt; margin-top: 2em; margin-bottom: 1em; text-transform: uppercase;">Table of Contents</h2>`;
+        html += `<div style="margin-bottom: 2em;">`;
 
-    // Static entries
-    html += `<p>Abstract........................................................................................................................ii</p>`;
-    if (payload.keywordsContent) html += `<p>Keywords.......................................................................................................................iii</p>`;
+        // Static entries
+        html += `<p>Abstract........................................................................................................................ii</p>`;
+        if (payload.keywordsContent) html += `<p>Keywords.......................................................................................................................iii</p>`;
 
-    // Main sections with subheadings
+        // Main sections with subheadings
+        const sections = [
+            { title: payload.introductionTitle || "Introduction", content: payload.introductionContent, number: 1 },
+            { title: payload.literatureReviewTitle || "Literature Review", content: payload.literatureReviewContent, number: 2 },
+            { title: payload.methodologyTitle || "Methodology", content: payload.methodologyContent, number: 3 },
+            { title: payload.resultsTitle || "Results and Analysis", content: payload.resultsContent, number: 4 },
+            { title: payload.discussionTitle || "Discussion", content: payload.discussionContent, number: 5 },
+            { title: payload.conclusionTitle || "Conclusion", content: payload.conclusionContent, number: 6 },
+            { title: payload.recommendationTitle || "Recommendations", content: payload.recommendationContent, number: 7 },
+        ];
+
+        let currentPage = 1;
+        let accumulatedLength = 0;
+
+        sections.forEach(section => {
+            if (section.content) {
+                // Main section entry
+                const sectionPage = estimatePageNumber(section.content, currentPage, accumulatedLength);
+                const dots = '.'.repeat(Math.max(1, 100 - section.title.length));
+                html += `<p>${section.number}. ${section.title}${dots}${sectionPage}</p>`;
+
+                // Extract and add subheadings
+                const subheadings = extractSubheadings(section.content);
+                subheadings.forEach(subheading => {
+                    const subPage = estimatePageNumber(subheading, sectionPage, accumulatedLength);
+                    const subDots = '.'.repeat(Math.max(1, 95 - subheading.length));
+                    html += `<p style="margin-left: 1em; font-style: italic;">${subheading}${subDots}${subPage}</p>`;
+                });
+
+                accumulatedLength += section.content.length;
+                currentPage = sectionPage;
+            }
+        });
+
+        // References
+        const referencesPage = estimatePageNumber(payload.referencesContent || '', currentPage, accumulatedLength);
+        html += `<p>References.....................................................................................................................${referencesPage}</p>`;
+        html += `</div><div style="page-break-before: always;"></div>`;
+    }
+
+    // Main Content Sections
     const sections = [
         { title: payload.introductionTitle || "Introduction", content: payload.introductionContent, number: 1 },
         { title: payload.literatureReviewTitle || "Literature Review", content: payload.literatureReviewContent, number: 2 },
@@ -625,35 +675,6 @@ const formatAsProjectWriteup = (payload: FormatRequestPayload): string => {
         { title: payload.recommendationTitle || "Recommendations", content: payload.recommendationContent, number: 7 },
     ];
 
-    let currentPage = 1;
-    let accumulatedLength = 0;
-
-    sections.forEach(section => {
-        if (section.content) {
-            // Main section entry
-            const sectionPage = estimatePageNumber(section.content, currentPage, accumulatedLength);
-            const dots = '.'.repeat(Math.max(1, 100 - section.title.length));
-            html += `<p>${section.number}. ${section.title}${dots}${sectionPage}</p>`;
-
-            // Extract and add subheadings
-            const subheadings = extractSubheadings(section.content);
-            subheadings.forEach(subheading => {
-                const subPage = estimatePageNumber(subheading, sectionPage, accumulatedLength);
-                const subDots = '.'.repeat(Math.max(1, 95 - subheading.length));
-                html += `<p style="margin-left: 1em; font-style: italic;">${subheading}${subDots}${subPage}</p>`;
-            });
-
-            accumulatedLength += section.content.length;
-            currentPage = sectionPage;
-        }
-    });
-
-    // References
-    const referencesPage = estimatePageNumber(payload.referencesContent || '', currentPage, accumulatedLength);
-    html += `<p>References.....................................................................................................................${referencesPage}</p>`;
-    html += `</div><div style="page-break-before: always;"></div>`;
-
-    // Main Content Sections
     sections.forEach(section => {
         if (section.content) {
             html += `<h2 style="font-weight: bold; font-size: 14pt; margin-top: 1.5em; margin-bottom: 0.5em;">${section.number}. ${section.title}</h2>`;
@@ -693,6 +714,8 @@ const createPayload = (state: PaperContentState): FormatRequestPayload => ({
     abstractContent: state.abstract,
     keywordsContent: state.keywords,
     referencesContent: state.references,
+    preliminaryPages: state.preliminaryPages,
+    includeTOC: state.includeTOC,
     ...(paperTypeConfig[state.selectedPaperType].hasStructuredBody ? {
         introductionContent: state.introduction,
         literatureReviewContent: state.literatureReview,
@@ -830,6 +853,8 @@ const App: React.FC = () => {
     const [discussionTitle, setDiscussionTitle] = useState<string>("Discussion");
     const [conclusionTitle, setConclusionTitle] = useState<string>("Conclusion");
     const [recommendationTitle, setRecommendationTitle] = useState<string>("Recommendation");
+    const [preliminaryPages, setPreliminaryPages] = useState<string>("");
+    const [includeTOC, setIncludeTOC] = useState<boolean>(true);
     const [formattedContent, setFormattedContent] = useState<string>("<p>Start typing or paste your paper content here!</p>");
     const [isLoading, setIsLoading] = useState<boolean>(false);
     const [error, setError] = useState<string | null>(null);
@@ -919,12 +944,14 @@ const App: React.FC = () => {
             setRecommendation("");
             setIntroductionTitle("");
             setLiteratureReviewTitle("");
-            setMethodologyTitle("");
             setResultsTitle("");
             setDiscussionTitle("");
             setConclusionTitle("");
             setRecommendationTitle("");
         }
+        // Reset new fields
+        setPreliminaryPages("");
+        setIncludeTOC(true);
     }, [selectedPaperType, hasAbstract, hasKeywords, hasStructuredBody]);
 
     useEffect(() => {
@@ -933,7 +960,8 @@ const App: React.FC = () => {
             abstract, keywords, mainContent, introduction, literatureReview,
             methodology, results, discussion, conclusion, recommendation, references,
             introductionTitle, literatureReviewTitle, methodologyTitle,
-            resultsTitle, discussionTitle, conclusionTitle, recommendationTitle
+            resultsTitle, discussionTitle, conclusionTitle, recommendationTitle,
+            preliminaryPages, includeTOC
         };
 
         const handler = setTimeout(() => {
@@ -972,7 +1000,8 @@ const App: React.FC = () => {
         abstract, keywords, mainContent, introduction, literatureReview,
         methodology, results, discussion, conclusion, recommendation, references,
         introductionTitle, literatureReviewTitle, methodologyTitle,
-        resultsTitle, discussionTitle, conclusionTitle, recommendationTitle
+        resultsTitle, discussionTitle, conclusionTitle, recommendationTitle,
+        preliminaryPages, includeTOC
     ]);
 
     const handleDownloadClick = () => {
@@ -1295,6 +1324,29 @@ const App: React.FC = () => {
                             placeholder="List your references here, one per line."
                             height="200px"
                         />
+
+                        {selectedPaperType === PaperType.ProjectWriteup && (
+                            <>
+                                <StyledLabel htmlFor="preliminaryPages">Preliminary Pages:</StyledLabel>
+                                <WysiwygEditor
+                                    value={preliminaryPages}
+                                    onChange={setPreliminaryPages}
+                                    placeholder="Add any preliminary pages content here..."
+                                    height="200px"
+                                />
+
+                                <div className="flex items-center mt-4">
+                                    <input
+                                        type="checkbox"
+                                        id="includeTOC"
+                                        checked={includeTOC}
+                                        onChange={(e) => setIncludeTOC(e.target.checked)}
+                                        className="mr-2"
+                                    />
+                                    <StyledLabel htmlFor="includeTOC" className="mb-0">Include Table of Contents</StyledLabel>
+                                </div>
+                            </>
+                        )}
 
                         {(error || scriptLoadingError) && <ErrorMessage>{error || scriptLoadingError}</ErrorMessage>}
 
